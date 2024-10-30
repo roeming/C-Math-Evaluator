@@ -1,0 +1,15 @@
+.container {
+    justify-content: stretch;
+    justify-items: stretch;
+    display: inline-grid;
+    grid-template-columns: 100px 40px 50px 40px 80px 50px 50px 50px 50px;
+    grid-template-rows: auto;
+}
+
+.down_container {
+    display: inline-grid;
+    grid-template-columns: auto;
+}
+div{
+    font-family: "Courier New"
+}
