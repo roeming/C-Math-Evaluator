@@ -1022,19 +1022,10 @@ function drawGraph(v)
 
 var graphCanvas;
 
-function GetURLParameter(sParam)
+function GetURLParameter()
 {
-    var sPageURL = window.location.search.substring(1);
-    var sURLVariables = sPageURL.split('&');
-    for (var i = 0; i < sURLVariables.length; i++) 
-    {
-        var sParameterName = sURLVariables[i].split('=');
-        if (sParameterName[0] == sParam) 
-        {
-            return sParameterName[1];
-        }
-    }
-    return undefined;
+    let url = new URL(window.location);
+    return url.searchParams.get("seq");
 }
 
 function equationChanged()
@@ -1052,8 +1043,16 @@ document.addEventListener('DOMContentLoaded', function (event) {
     graphCanvas = document.getElementById("graphOutput");
     inputElement.addEventListener("input", equationChanged);
 
+    document.getElementById("copyBtn").addEventListener("click", ()=>{
+        let url = new URL([location.protocol, '//', location.host, location.pathname].join(""));
+        url.searchParams.append("seq", inputElement.value);
+        // console.log(url);
+        navigator.clipboard.writeText(url);
+        document.getElementById("copyBtn_confirm").innerHTML = "copied!"
+    });
+
     let urlParams = GetURLParameter("seq");
-    if (urlParams !== undefined)
+    if (urlParams !== null)
     {
         inputElement.defaultValue = urlParams;
         equationChanged();
