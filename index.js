@@ -1030,6 +1030,7 @@ function GetURLParameter()
 
 function equationChanged()
 {
+    document.getElementById("copyBtn_confirm").innerHTML = "";
     clearGraph();
     clearVariableNames();
     clearOutputList();
