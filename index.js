@@ -824,6 +824,7 @@ function clearGraph()
 {
     let ctx = graphCanvas.getContext('2d');
     ctx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+    dots = [];
 }
 
 function clearVariableNames()
@@ -885,15 +886,15 @@ function drawGraph(v)
         return [out_x, out_y];
     }
 
+    let radius = 5;
     function plot_point(xy)
     {
         const [x, y] = get_point(xy);
-        radius = 5;
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, 2 * Math.PI, false);
         ctx.fillStyle = 'green';
         ctx.fill();
-        ctx.lineWidth = 5;
+        // ctx.lineWidth = 5;
         ctx.strokeStyle = '#003300';
         ctx.stroke();
     }
@@ -1020,6 +1021,17 @@ function drawGraph(v)
     {
         ctx.fillText(0, get_point([0, 0])[0], x_y_side);
     }
+
+    v.forEach(p => {
+        let canvas_p = get_point(p);
+        dots.push({
+            x: canvas_p[0],
+            y: canvas_p[1],
+            r: radius,
+            rXr:radius*radius,
+            tip: `(${p[0]}, ${p[1]})`
+        })
+    });
 }
 
 var graphCanvas;
@@ -1041,6 +1053,8 @@ function equationChanged()
     evaluate_equation();
 }
 
+var dots = [];
+
 document.addEventListener('DOMContentLoaded', function (event) {
     let inputElement = document.getElementById("inp");
     graphCanvas = document.getElementById("graphOutput");
@@ -1052,6 +1066,32 @@ document.addEventListener('DOMContentLoaded', function (event) {
         // console.log(url);
         navigator.clipboard.writeText(url);
         document.getElementById("copyBtn_confirm").innerHTML = "copied!"
+    });
+
+    let graphTT = document.getElementById("graphToolTip");
+    let tipCtx = graphTT.getContext('2d');
+    let font_size = 12;
+    tipCtx.font = font_size + "px Arial";
+    graphCanvas.addEventListener("mousemove", (e) => {
+        let = offsetX = graphCanvas.offsetLeft;
+        let = offsetY = graphCanvas.offsetTop;
+        mouseX=parseInt(e.pageX-offsetX);
+        mouseY=parseInt(e.pageY-offsetY);
+
+        let hit = false;
+        for (var i = 0; i < dots.length; i++) {
+            let dot = dots[i];
+            let dx = mouseX - dot.x;
+            let dy = mouseY - dot.y;
+            if (dx * dx + dy * dy < dot.rXr) {
+                graphTT.style.left = e.pageX + "px";
+                graphTT.style.top = (e.pageY - 40) + "px";
+                tipCtx.clearRect(0, 0, graphTT.width, graphTT.height);
+                tipCtx.fillText(dot.tip, 5, 15);
+                hit = true;
+            }
+        }
+        if (!hit) { graphTT.style.left = "-200px"; }
     });
 
     let urlParams = GetURLParameter("seq");

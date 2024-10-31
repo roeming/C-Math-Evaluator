@@ -10,6 +10,15 @@
     display: inline-grid;
     grid-template-columns: auto;
 }
+
 div{
     font-family: "Courier New"
+}
+
+#graphToolTip {
+    background-color:white;
+    border:1px solid blue;
+    position:absolute;
+    left:-200px;
+    top:100px;
 }
