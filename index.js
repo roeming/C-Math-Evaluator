@@ -157,10 +157,12 @@ function get_next_symbol_start(s_string, pos_int) {
     return pos_int;
 };
 
-// regex to match a hex number, or a decimal number
-// but only at the beginning of the string, and has to be followed by 
-// the end of the string, or an operator
-const num_regex = /^(((0(x|X)[0-9A-Fa-f]+))|([0-9]+))(?:[^\w\d]|$)/;
+// regex to match a hex number, or a decimal number.
+// Only at the beginning of the string, and has to be followed by 
+// the end of the string, or an operator.
+// also optional u or U at the end of a string, just allows matches with 
+// unsigned shifts that come out of ghidra.
+const num_regex = /^((((0(x|X)[0-9A-Fa-f]+))|([0-9]+))([u|U]?))(?:[^\w\d]|$)/;
 function read_number(s_string, pos_int)
 {
     let res = s_string.substring(pos_int).match(num_regex);
