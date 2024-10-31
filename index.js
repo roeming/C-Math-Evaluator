@@ -1078,20 +1078,22 @@ document.addEventListener('DOMContentLoaded', function (event) {
         mouseX=parseInt(e.pageX-offsetX);
         mouseY=parseInt(e.pageY-offsetY);
 
-        let hit = false;
+
+        let closestDistance = null;
         for (var i = 0; i < dots.length; i++) {
             let dot = dots[i];
             let dx = mouseX - dot.x;
             let dy = mouseY - dot.y;
-            if (dx * dx + dy * dy < dot.rXr) {
+            let dist = dx * dx + dy * dy;
+            if (dist < dot.rXr && ((closestDistance === null) || (dist < closestDistance))) {
                 graphTT.style.left = e.pageX + "px";
                 graphTT.style.top = (e.pageY - 40) + "px";
                 tipCtx.clearRect(0, 0, graphTT.width, graphTT.height);
                 tipCtx.fillText(dot.tip, 5, 15);
-                hit = true;
+                closestDistance = dist;
             }
         }
-        if (!hit) { graphTT.style.left = "-200px"; }
+        if (closestDistance === null) { graphTT.style.left = "-200px"; }
     });
 
     let urlParams = GetURLParameter("seq");
