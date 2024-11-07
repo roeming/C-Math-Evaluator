@@ -25,67 +25,166 @@ const OPERATOR_DIRECTION = makeEnum([
     "NONE"
 ]);
 
+const SIGNEDNESS = makeEnum([
+    "SIGNED",
+    "UNSIGNED",
+    "NONE"
+])
+
 class ValueWrapper_LITERAL {
-    constructor(v) { this.v = v; }
+    constructor(v, signed) {
+        this.v = v;
+        this.signed = signed;
+    }
 
     getValue(defines)
     {
-        return this.v;
+        return {
+            value : this.v,
+            signed : this.signed
+        }
     }
 }
 
 class ValueWrapper_VARIABLE {
-    constructor(v) { this.vName = v; }
+    constructor(v, signed) {
+        this.vName = v;
+        this.signed = signed;
+    }
 
     getValue(defines)
     {
-        return defines.get(this.vName);
+        return {
+            value : defines.get(this.vName),
+            signed : this.signed
+        }
     }
 }
 
 class Operator {
-    constructor(symbol, token, precedence, direction, arg_num, operator) {
+    constructor(symbol, token, precedence, direction, arg_num, operator, resultingSignedness) {
         this.symbol = symbol;
         this.token = token;
         this.precedence = precedence;
         this.direction = direction;
         this.operator = operator;
         this.arg_num = arg_num;
+        this.signed = resultingSignedness;
     }
 }
+
+function to_unsigned(val, bitCount)
+{
+    //! BUG: Doesn't work with bitCount > 32
+
+    // we're gonna use masking to retrieve the bits of our number; 8 => 0xff, 16 => 0xffff
+    // but we don't want to use the 2**bitCount-1, too expensive.
+    // we can't use (1<<bitCount)-1 because 1<<32 == 1, it loops around.
+    // we'll take a (u32)(-1) and shift out the bits.
+    // 32 shifts out 0, 8 shifts out 24.
+    // `>>>` is the right shift for unsigned ints, it casts to a u32
+    const bitMask = (-1) >>> (32 - bitCount);
+
+    // bit masking doesn't work for u32 numbers, cuz masking returns a 32-bit signed int.
+    // add a u32 right shift operator to cast
+    return (val & bitMask) >>> 0;
+}
+
+function to_signed(val, bitCount)
+{
+    //! BUG: Doesn't work with bitCount > 32
+
+    // we want half the max of 2**bitCount; 256 => 128
+    // essentially what the value would be if the top bit was set, and all others were 0.
+    // we can get that easy with 1<<(bitCount-1); 1<<(8-1) == 128
+    // because shift operators return a s32, the result will be negative if we use 32 bits (not what we want),
+    // add a u32 shift operator to cast to u32
+    const halfMax = (1 << (bitCount - 1)) >>> 0;
+
+    // add half the max so values with the top bit set will overflow, then mod around to being lower when cast to unsigned
+    // then sub the half so the overflowed values become negative, and the non-overflowed values don't change
+    return to_unsigned(val + halfMax, bitCount) - halfMax;
+}
+
+const to_u32 = (x) => to_unsigned(x, 32); 
+const to_s32 = (x) => to_signed(x, 32);
+const to_u16 = (x) => to_unsigned(x, 16);
+const to_s16 = (x) => to_signed(x, 16);
+const to_u8 = (x) => to_unsigned(x, 8);
+const to_s8 = (x) => to_signed(x, 8);
 
 function MakeOpWrapper(operator_object) {
     return class {
         constructor(...args)
         {
             this.args = args;
+            this.op_object = operator_object;
         }
+
         getValue(defines)
         {
-            if (operator_object.arg_num == OPERATOR_ARGS.ARGS_0)
+            if (this.op_object.arg_num == OPERATOR_ARGS.ARGS_0)
             {
                 let [v] = this.args;
-                let v_value = v.getValue(defines);
 
+                // this will be an object that contains the value and signed information
+                let v_value = v.getValue(defines);
+                
+                // just return the value and signed information
                 return v_value;
             }
-            else if (operator_object.arg_num == OPERATOR_ARGS.ARGS_1)
+            else if (this.op_object.arg_num == OPERATOR_ARGS.ARGS_1)
             {
                 let [v] = this.args;
-                let v_value = v.getValue(defines);
-                let ret_value = operator_object.operator(v_value);
-                // console.log(`${operator_object.symbol} ${v_value} = ${ret_value};`)
+                // this will be an object that contains the value and signed information
+                let v_res = v.getValue(defines);
 
-                return ret_value;
+                let ret_value = this.op_object.operator(v_res.value);
+
+                // if the operator has an express signedness, return that sign, otherwise return the values sign
+                const result_signedness = this.op_object.signed != SIGNEDNESS.NONE ? this.op_object.signed : v_res.signed;
+                return {
+                    value : ret_value,
+                    signed : result_signedness
+                };
             }
-            else if (operator_object.arg_num == OPERATOR_ARGS.ARGS_2)
+            else if (this.op_object.arg_num == OPERATOR_ARGS.ARGS_2)
             {
                 let [ls, rs] = this.args;
+                
                 let ls_value = ls.getValue(defines);
                 let rs_value = rs.getValue(defines);
-                let ret_value = operator_object.operator(ls_value, rs_value);
-                // console.log(`${ls_value} ${operator_object.symbol} ${rs_value} = ${ret_value};`)
-                return ret_value;
+
+                let signedness = SIGNEDNESS.SIGNED;
+
+                if (this.op_object.token == OPERATOR_TOKEN.LOGICAL_COMMA)
+                {
+                    // pass, the value on the left side of comma has nothing to do with the right side
+                }
+                else if (ls_value.signed == SIGNEDNESS.UNSIGNED || rs_value.signed == SIGNEDNESS.UNSIGNED) {
+                    // if either operand is unsigned, treat both as unsigned
+                    signedness = SIGNEDNESS.UNSIGNED;
+                    rs_value.value = to_u32(rs_value.value);
+                    ls_value.value = to_u32(ls_value.value);
+                }
+
+                let ret_value = this.op_object.operator(ls_value.value, rs_value.value);
+                const result_signedness = this.op_object.signed != SIGNEDNESS.NONE ? this.op_object.signed : signedness;
+
+                // sanity check to make sure we're in the right space
+                if (result_signedness == SIGNEDNESS.UNSIGNED)
+                {
+                    ret_value = to_u32(ret_value);
+                }
+                else
+                {
+                    ret_value = to_s32(ret_value);
+                }
+
+                return {
+                    value : ret_value,
+                    signed : result_signedness
+                }
             }
         }
     };
@@ -93,43 +192,43 @@ function MakeOpWrapper(operator_object) {
 
 // Taken from https://en.cppreference.com/w/c/language/operator_precedence
 ALL_OPERATORS = [
-    new Operator('(', "BRACKET_OPEN", 0, OPERATOR_DIRECTION.NONE, OPERATOR_ARGS.ARGS_0, () => undefined),
-    new Operator(')', "BRACKET_CLOSE", 0, OPERATOR_DIRECTION.NONE, OPERATOR_ARGS.ARGS_0, () => undefined),
+    new Operator('(', "BRACKET_OPEN", 0, OPERATOR_DIRECTION.NONE, OPERATOR_ARGS.ARGS_0, () => undefined, SIGNEDNESS.NONE),
+    new Operator(')', "BRACKET_CLOSE", 0, OPERATOR_DIRECTION.NONE, OPERATOR_ARGS.ARGS_0, () => undefined, SIGNEDNESS.NONE),
     
-    new Operator('~', "BITWISE_NOT", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => ~v),
-    new Operator('!', "LOGICAL_NOT", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => (!v) ? 1 : 0),
-    new Operator('-', "MATH_NEGATE", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => -v),
-    new Operator('+', "MATH_UNARY", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => v),
+    new Operator('~', "BITWISE_NOT", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => ~v, SIGNEDNESS.NONE),
+    new Operator('!', "LOGICAL_NOT", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => (!v) ? 1 : 0, SIGNEDNESS.SIGNED),
+    new Operator('-', "MATH_NEGATE", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => -v, SIGNEDNESS.NONE),
+    new Operator('+', "MATH_UNARY", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => v, SIGNEDNESS.NONE),
     
-    new Operator('*', "MATH_MUL", 3, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls * rs),
-    new Operator('/', "MATH_DIV", 3, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => Math.trunc(ls / rs)),
-    new Operator('%', "MATH_MOD", 3, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls % rs),
+    new Operator('*', "MATH_MUL", 3, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls * rs, SIGNEDNESS.NONE),
+    new Operator('/', "MATH_DIV", 3, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => Math.trunc(ls / rs), SIGNEDNESS.NONE),
+    new Operator('%', "MATH_MOD", 3, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls % rs, SIGNEDNESS.NONE),
 
-    new Operator('+', "MATH_ADD", 4, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls + rs),
-    new Operator('-', "MATH_SUB", 4, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls - rs),
+    new Operator('+', "MATH_ADD", 4, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls + rs, SIGNEDNESS.NONE),
+    new Operator('-', "MATH_SUB", 4, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls - rs, SIGNEDNESS.NONE),
     
-    new Operator('<<', "BITWISE_LS", 5, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls << rs),
-    new Operator('>>', "BITWISE_RS", 5, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls >> rs),
+    new Operator('<<', "BITWISE_LS", 5, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls << rs, SIGNEDNESS.NONE),
+    new Operator('>>', "BITWISE_RS", 5, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls >> rs, SIGNEDNESS.NONE),
     
-    new Operator('<', "LOGICAL_LT", 6, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls < rs ? 1 : 0),
-    new Operator('>', "LOGICAL_GT", 6, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls > rs ? 1 : 0),
-    new Operator('<=', "LOGICAL_LTE", 6, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls <= rs ? 1 : 0),
-    new Operator('>=', "LOGICAL_GTE", 6, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls >= rs ? 1 : 0),
+    new Operator('<', "LOGICAL_LT", 6, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls < rs ? 1 : 0, SIGNEDNESS.SIGNED),
+    new Operator('>', "LOGICAL_GT", 6, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls > rs ? 1 : 0, SIGNEDNESS.SIGNED),
+    new Operator('<=', "LOGICAL_LTE", 6, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls <= rs ? 1 : 0, SIGNEDNESS.SIGNED),
+    new Operator('>=', "LOGICAL_GTE", 6, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls >= rs ? 1 : 0, SIGNEDNESS.SIGNED),
 
-    new Operator('==', "LOGICAL_EQ", 7, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls == rs ? 1 : 0),
-    new Operator('!=', "LOGICAL_NEQ", 7, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls != rs ? 1 : 0),
+    new Operator('==', "LOGICAL_EQ", 7, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls == rs ? 1 : 0, SIGNEDNESS.SIGNED),
+    new Operator('!=', "LOGICAL_NEQ", 7, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls != rs ? 1 : 0, SIGNEDNESS.SIGNED),
 
-    new Operator('&', "BITWISE_AND", 8, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls & rs),
+    new Operator('&', "BITWISE_AND", 8, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls & rs, SIGNEDNESS.NONE),
     
-    new Operator('^', "BITWISE_XOR", 9, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls ^ rs),
+    new Operator('^', "BITWISE_XOR", 9, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls ^ rs, SIGNEDNESS.NONE),
 
-    new Operator('|', "BITWISE_OR", 10, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls | rs),
+    new Operator('|', "BITWISE_OR", 10, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls | rs, SIGNEDNESS.NONE),
 
-    new Operator('&&', "LOGICAL_AND", 11, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls && rs ? 1 : 0),
+    new Operator('&&', "LOGICAL_AND", 11, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls && rs ? 1 : 0, SIGNEDNESS.SIGNED),
     
-    new Operator('||', "LOGICAL_OR", 12, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls || rs ? 1 : 0),
+    new Operator('||', "LOGICAL_OR", 12, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls || rs ? 1 : 0, SIGNEDNESS.SIGNED),
     
-    new Operator(',', "LOGICAL_COMMA", 15, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => rs),
+    new Operator(',', "LOGICAL_COMMA", 15, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => rs, SIGNEDNESS.NONE),
 ]
 
 const OPERATOR_TOKEN = makeEnum(ALL_OPERATORS.map((e)=>e.token));
@@ -137,6 +236,8 @@ const OPERATOR_TOKEN = makeEnum(ALL_OPERATORS.map((e)=>e.token));
 const OPERATOR_SYMBOL_TO_TOKEN = makeEnum_V(ALL_OPERATORS.map((e) => [e.symbol, e.token]));
 
 const OPERATOR_TOKEN_TO_OPERATOR = makeEnum_V(ALL_OPERATORS.map((e)=>[e.token, e]));
+
+const MAX_OPERATOR_SYMBOL_LENGTH = Math.max(...ALL_OPERATORS.map((e)=>e.symbol.length))
 
 const TOKEN_TYPE = makeEnum([
     "VARIABLE_NAME",
@@ -165,7 +266,7 @@ function get_next_symbol_start(s_string, pos_int) {
 const num_regex = /^((((0(x|X)[0-9A-Fa-f]+))|([0-9]+))([u|U]?))(?:[^\w\d]|$)/;
 function read_number(s_string, pos_int)
 {
-    let res = s_string.substring(pos_int).match(num_regex);
+    const res = s_string.substring(pos_int).match(num_regex);
     if (res == null)
     {
         return {
@@ -175,21 +276,25 @@ function read_number(s_string, pos_int)
     }
 
     // parse from group 1 (which won't capture the end character if its followed by an operator)
-    let outNum = Number.parseInt(res[1]);
-
+    const matchingString = res[1]
+    const outNum = Number.parseInt(matchingString);
+    
     if (outNum === NaN)
     {
         return {
             type: TOKEN_TYPE.ERROR,
-            value: `can't parse value to int: ${res[1]}`
+            value: `can't parse value to int: ${matchingString}`
         }
     }
+
+    const isUnsignedNum = (matchingString.includes("U")) || (matchingString.includes("u"));
 
     return {
         type: TOKEN_TYPE.NUMBER_LITERAL,
         value: {
             symbol : outNum,
-            new_offset : pos_int + res[1].length
+            signed : isUnsignedNum ? SIGNEDNESS.UNSIGNED : SIGNEDNESS.SIGNED,
+            new_offset : pos_int + matchingString.length
         }
     }
 }
@@ -210,6 +315,7 @@ function read_variable(s_string, pos_int)
         type: TOKEN_TYPE.VARIABLE_NAME,
         value: {
             symbol : res[0],
+            signed : SIGNEDNESS.SIGNED,
             new_offset : pos_int + res[0].length
         }
     }
@@ -218,8 +324,7 @@ function read_variable(s_string, pos_int)
 function read_operator(s_string, pos_int)
 {
     // max number of characters in an operator
-    //! TODO, derive this instead
-    let max_length = 2;
+    const max_length = MAX_OPERATOR_SYMBOL_LENGTH;
 
     for (let i = max_length; i > 0; i--)
     {
@@ -241,6 +346,7 @@ function read_operator(s_string, pos_int)
                 type : ret_type,
                 value : {
                     symbol : OPERATOR_TOKEN_TO_OPERATOR[new_token],
+                    signed :  SIGNEDNESS.NONE,
                     new_offset : pos_int + new_symbol.length
                 }
             };
@@ -310,6 +416,7 @@ function tokenize(s_string)
         }
         vars_out.push({
             type: res.type,
+            signed : res.value.signed,
             value: res.value.symbol
         });
         i = res.value.new_offset;
@@ -422,11 +529,11 @@ function turn_RPN_into_evaluator(rpn_symbols)
         
         if (element.type == TOKEN_TYPE.VARIABLE_NAME)
         {
-            stack.push(new ValueWrapper_VARIABLE(element.value));
+            stack.push(new ValueWrapper_VARIABLE(element.value, element.signed));
         }
         else if (element.type == TOKEN_TYPE.NUMBER_LITERAL)
         {
-            stack.push(new ValueWrapper_LITERAL(element.value));
+            stack.push(new ValueWrapper_LITERAL(element.value, element.signed));
         }
         else if(element.type == TOKEN_TYPE.OPERATOR)
         {
@@ -551,7 +658,7 @@ function evaluate_equation()
     {
         if (variable_list.length == 0)
         {
-            out_values.push([defines_object, eq_evaluator.getValue(defines_object)]);
+            out_values.push([defines_object, eq_evaluator.getValue(defines_object).value]);
             return;
         }
 
