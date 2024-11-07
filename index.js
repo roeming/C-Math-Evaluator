@@ -168,7 +168,17 @@ function MakeOpWrapper(operator_object) {
                     ls_value.value = to_u32(ls_value.value);
                 }
 
-                let ret_value = this.op_object.operator(ls_value.value, rs_value.value);
+                let ret_value;
+                // special case for javascript's implementation of bit shifting always using s32
+                if (this.op_object.token == OPERATOR_TOKEN.BITWISE_RS && signedness == SIGNEDNESS.UNSIGNED)
+                {
+                    ret_value = ls_value.value >>> rs_value.value;
+                }
+                else
+                {
+                    ret_value = this.op_object.operator(ls_value.value, rs_value.value);
+                }
+
                 const result_signedness = this.op_object.signed != SIGNEDNESS.NONE ? this.op_object.signed : signedness;
 
                 // sanity check to make sure we're in the right space
