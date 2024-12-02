@@ -306,6 +306,19 @@ const TOKEN_TYPE = makeEnum([
 
 const OPERATOR_TOKEN_TO_VALUEWRAPPER = makeEnum_V(ALL_OPERATORS.map((e)=>[e.token, MakeOpWrapper(e)]));
 
+
+const formatNumber = (val) =>{
+    if (document.getElementById("HexCheck").checked)
+    {
+        let newVal = Math.abs(val).toString(16).toUpperCase();
+        return (val < 0 ? "-0x" : "0x") + newVal;
+    }
+    else
+    {
+        return val.toString();
+    }
+}
+
 function get_next_symbol_start(s_string, pos_int) {
     while (pos_int < s_string.length && s_string[pos_int] === ' ')
     {
@@ -798,8 +811,8 @@ function evaluate_equation()
     elem.innerHTML = "";
     outValues.forEach(v => {
         let s = "[";
-        s += Array.from(v[0].keys()).map(element => `(${element} : ${v[0].get(element)})`).join(", ");
-        s+= " = " + v[1];
+        s += Array.from(v[0].keys()).map(element => `(${element} : ${formatNumber(v[0].get(element))})`).join(", ");
+        s += " = " + formatNumber(v[1]);
         s += "]\n";
         elem.innerHTML += s;
         // JSON.stringify(outValues);
@@ -1160,12 +1173,12 @@ function drawGraph(v)
     {
         y_x_side = border_br[0];
     }
-    ctx.fillText(miny, y_x_side, get_point([0, miny])[1] + (font_size/2));
-    ctx.fillText(maxy, y_x_side, get_point([0, maxy])[1] + (font_size/2));
+    ctx.fillText(formatNumber(miny), y_x_side, get_point([0, miny])[1] + (font_size/2));
+    ctx.fillText(formatNumber(maxy), y_x_side, get_point([0, maxy])[1] + (font_size/2));
 
     if (miny != maxy && miny < 0 && maxy > 0)
     {
-        ctx.fillText(0, y_x_side, get_point([0, 0])[1] + (font_size/2));
+        ctx.fillText(formatNumber(0), y_x_side, get_point([0, 0])[1] + (font_size/2));
     }
 
     // X Values
@@ -1179,12 +1192,12 @@ function drawGraph(v)
     {
         x_y_side = font_size;
     }
-    ctx.fillText(minx, get_point([minx, 0])[0], x_y_side);
-    ctx.fillText(maxx, get_point([maxx, 0])[0], x_y_side);
+    ctx.fillText(formatNumber(minx), get_point([minx, 0])[0], x_y_side);
+    ctx.fillText(formatNumber(maxx), get_point([maxx, 0])[0], x_y_side);
 
     if (minx != maxx && minx < 0 && maxx > 0)
     {
-        ctx.fillText(0, get_point([0, 0])[0], x_y_side);
+        ctx.fillText(formatNumber(0), get_point([0, 0])[0], x_y_side);
     }
 
     v.forEach(p => {
@@ -1194,7 +1207,7 @@ function drawGraph(v)
             y: canvas_p[1],
             r: radius,
             rXr:radius*radius,
-            tip: `(${p[0]}, ${p[1]})`
+            tip: `(${formatNumber(p[0])}, ${formatNumber(p[1])})`
         })
     });
 }
@@ -1224,6 +1237,7 @@ document.addEventListener('DOMContentLoaded', function (event) {
     let inputElement = document.getElementById("inp");
     graphCanvas = document.getElementById("graphOutput");
     inputElement.addEventListener("input", equationChanged);
+    document.getElementById("HexCheck").addEventListener("input", equationChanged);
 
     document.getElementById("copyBtn").addEventListener("click", ()=>{
         let url = new URL([location.protocol, '//', location.host, location.pathname].join(""));
