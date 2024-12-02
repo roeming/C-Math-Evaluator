@@ -75,6 +75,13 @@ class Operator {
 
 function to_unsigned(val, bitCount)
 {
+    // if nan or infinite just return the bad number, 
+    // casting hides the fact that its nan or infinity
+    if (!Number.isFinite(val))
+    {
+        return val;
+    }
+
     //! BUG: Doesn't work with bitCount > 32
 
     // we're gonna use masking to retrieve the bits of our number; 8 => 0xff, 16 => 0xffff
@@ -92,6 +99,13 @@ function to_unsigned(val, bitCount)
 
 function to_signed(val, bitCount)
 {
+    // if nan or infinite just return the bad number, 
+    // casting hides the fact that its nan or infinity
+    if (!Number.isFinite(val))
+    {
+        return val;
+    }
+
     //! BUG: Doesn't work with bitCount > 32
 
     // we want half the max of 2**bitCount; 256 => 128
@@ -993,12 +1007,12 @@ function drawGraph(v)
     let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
     v.forEach(element => {
         let [x, y] = element;
-        if (x !== NaN && x !== Infinity && x !== -Infinity)
+        if (Number.isFinite(x))
         {
             minx = Math.min(minx, x);
             maxx = Math.max(maxx, x);
         }
-        if (y !== NaN && y !== Infinity && y !== -Infinity)
+        if (Number.isFinite(y))
         {
             miny = Math.min(miny, y);
             maxy = Math.max(maxy, y);
@@ -1110,14 +1124,16 @@ function drawGraph(v)
 
     ctx.setLineDash([5, 15]);
     v.forEach(element => {
-        if (element[1] == -Infinity || element[1] == Infinity || element[1] == NaN)
+        if (Number.isFinite(element[1]))
         {
-            ctx.stroke();
-            ctx.beginPath()
+            // if we have a valid point, add it to the path
+            ctx.lineTo(...get_point(element));
         }
         else
         {
-            ctx.lineTo(...get_point(element));
+            // otherwise finish the path, and start a new one (skipping this point which is infinity or nan)
+            ctx.stroke();
+            ctx.beginPath()
         }
         // plot_point(element);
     });
