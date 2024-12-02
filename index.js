@@ -308,7 +308,7 @@ const OPERATOR_TOKEN_TO_VALUEWRAPPER = makeEnum_V(ALL_OPERATORS.map((e)=>[e.toke
 
 
 const formatNumber = (val) =>{
-    if (document.getElementById("HexCheck").checked)
+    if (Number.isFinite(val) && document.getElementById("HexCheck").checked)
     {
         let newVal = Math.abs(val).toString(16).toUpperCase();
         return (val < 0 ? "-0x" : "0x") + newVal;
