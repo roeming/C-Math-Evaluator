@@ -219,6 +219,26 @@ ALL_OPERATORS = [
     new Operator('(', "BRACKET_OPEN", 0, OPERATOR_DIRECTION.NONE, OPERATOR_ARGS.ARGS_0, () => undefined, SIGNEDNESS.NONE),
     new Operator(')', "BRACKET_CLOSE", 0, OPERATOR_DIRECTION.NONE, OPERATOR_ARGS.ARGS_0, () => undefined, SIGNEDNESS.NONE),
     
+    new Operator("LZCOUNT", "LZCOUNT", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => {
+        let u = to_u32(v);
+        for (i = 0; i < 32; i++)
+        {
+            if ((u >> i) == 0) return (32 - i);
+        }
+
+        return 0;
+    }, SIGNEDNESS.SIGNED),
+
+    new Operator("cntlzw", "LZCOUNT", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => {
+        let u = to_u32(v);
+        for (i = 0; i < 32; i++)
+        {
+            if ((u >> i) == 0) return (32 - i);
+        }
+
+        return 0;
+    }, SIGNEDNESS.SIGNED),
+
     new Operator('~', "BITWISE_NOT", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => ~v, SIGNEDNESS.NONE),
     new Operator('!', "LOGICAL_NOT", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => (!v) ? 1 : 0, SIGNEDNESS.SIGNED),
     new Operator('-', "MATH_NEGATE", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => -v, SIGNEDNESS.NONE),
