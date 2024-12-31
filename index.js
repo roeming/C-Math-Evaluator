@@ -219,62 +219,41 @@ ALL_OPERATORS = [
     new Operator('(', "BRACKET_OPEN", 0, OPERATOR_DIRECTION.NONE, OPERATOR_ARGS.ARGS_0, () => undefined, SIGNEDNESS.NONE),
     new Operator(')', "BRACKET_CLOSE", 0, OPERATOR_DIRECTION.NONE, OPERATOR_ARGS.ARGS_0, () => undefined, SIGNEDNESS.NONE),
     
-    new Operator("LZCOUNT", "LZCOUNT", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => {
-        let u = to_u32(v);
-        for (i = 0; i < 32; i++)
-        {
-            if ((u >> i) == 0) return (32 - i);
+    ...["LZCOUNT", "cntlzw"].map(name => 
+    new Operator(name, "LZCOUNT", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => {
+            let u = to_u32(v);
+            for (i = 0; i < 32; i++)
+            {
+                if ((u >> i) == 0) return (32 - i);
+            }
+
+            return 0;
         }
-
-        return 0;
-    }, SIGNEDNESS.SIGNED),
-
-    new Operator("cntlzw", "LZCOUNT", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => {
-        let u = to_u32(v);
-        for (i = 0; i < 32; i++)
-        {
-            if ((u >> i) == 0) return (32 - i);
-        }
-
-        return 0;
-    }, SIGNEDNESS.SIGNED),
+        , SIGNEDNESS.SIGNED)
+    ),
 
     new Operator('~', "BITWISE_NOT", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => ~v, SIGNEDNESS.NONE),
     new Operator('!', "LOGICAL_NOT", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => (!v) ? 1 : 0, SIGNEDNESS.SIGNED),
     new Operator('-', "MATH_NEGATE", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => -v, SIGNEDNESS.NONE),
     new Operator('+', "MATH_UNARY", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => v, SIGNEDNESS.NONE),
-    
-    new Operator('(u32)', "CAST_U32", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_u32(v), SIGNEDNESS.UNSIGNED),
-    new Operator('(unsigned int)', "CAST_U32", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_u32(v), SIGNEDNESS.UNSIGNED),
-    new Operator('(uint)', "CAST_U32", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_u32(v), SIGNEDNESS.UNSIGNED),
-    new Operator('(unsigned long)', "CAST_U32", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_u32(v), SIGNEDNESS.UNSIGNED),
-    new Operator('(ulong)', "CAST_U32", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_u32(v), SIGNEDNESS.UNSIGNED),
-    new Operator('(uint32_t)', "CAST_U32", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_u32(v), SIGNEDNESS.UNSIGNED),
-
-    new Operator('(s32)', "CAST_S32", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_s32(v), SIGNEDNESS.SIGNED),
-    new Operator('(int)', "CAST_S32", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_s32(v), SIGNEDNESS.SIGNED),
-    new Operator('(long)', "CAST_S32", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_s32(v), SIGNEDNESS.SIGNED),
-    new Operator('(int32_t)', "CAST_S32", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_s32(v), SIGNEDNESS.SIGNED),
-
-    new Operator('(u16)', "CAST_U16", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_u16(v), SIGNEDNESS.UNSIGNED),
-    new Operator('(ushort)', "CAST_U16", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_u16(v), SIGNEDNESS.UNSIGNED),
-    new Operator('(unsigned short)', "CAST_U16", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_u16(v), SIGNEDNESS.UNSIGNED),
-    new Operator('(uint16_t)', "CAST_U16", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_u16(v), SIGNEDNESS.UNSIGNED),
-
-    new Operator('(s16)', "CAST_S16", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_s16(v), SIGNEDNESS.SIGNED),
-    new Operator('(short)', "CAST_S16", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_s16(v), SIGNEDNESS.SIGNED),
-    new Operator('(int16_t)', "CAST_S16", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_s16(v), SIGNEDNESS.SIGNED),
-    
-    new Operator('(u8)', "CAST_U8", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_u8(v), SIGNEDNESS.UNSIGNED),
-    new Operator('(unsigned char)', "CAST_U8", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_u8(v), SIGNEDNESS.UNSIGNED),
-    new Operator('(uchar)', "CAST_U8", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_u8(v), SIGNEDNESS.UNSIGNED),
-    new Operator('(byte)', "CAST_U8", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_u8(v), SIGNEDNESS.UNSIGNED),
-    new Operator('(uint8_t)', "CAST_U8", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_u8(v), SIGNEDNESS.UNSIGNED),
-
-    new Operator('(s8)', "CAST_S8", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_s8(v), SIGNEDNESS.SIGNED),
-    new Operator('(char)', "CAST_S8", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_s8(v), SIGNEDNESS.SIGNED),
-    new Operator('(sbyte)', "CAST_S8", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_s8(v), SIGNEDNESS.SIGNED),
-    new Operator('(int8_t)', "CAST_S8", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_s8(v), SIGNEDNESS.SIGNED),
+    ...['(u32)', '(unsigned int)', '(uint)', '(unsigned long)', '(ulong)', '(uint32_t)'].map(name =>
+        new Operator(name, "CAST_U32", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_u32(v), SIGNEDNESS.UNSIGNED)
+    ),
+    ...['(s32)', '(int)', '(long)', '(int32_t)'].map(name =>
+        new Operator(name, "CAST_S32", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_s32(v), SIGNEDNESS.SIGNED),
+    ),
+    ...['(u16)', '(ushort)', '(unsigned short)', '(uint16_t)'].map(name =>
+        new Operator(name, "CAST_U16", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_u16(v), SIGNEDNESS.UNSIGNED),
+    ),
+    ...['(s16)', '(short)', '(int16_t)'].map (name =>
+        new Operator(name, "CAST_S16", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_s16(v), SIGNEDNESS.SIGNED),
+    ),
+    ...['(u8)', '(unsigned char)', '(uchar)', '(byte)', '(uint8_t)'].map(name =>
+        new Operator(name, "CAST_U8", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_u8(v), SIGNEDNESS.UNSIGNED),
+    ),
+    ...['(s8)', '(char)', '(sbyte)', '(int8_t)'].map(name =>
+        new Operator(name, "CAST_S8", 2, OPERATOR_DIRECTION.R_TO_L, OPERATOR_ARGS.ARGS_1, (v) => to_s8(v), SIGNEDNESS.SIGNED),
+    ),
 
     new Operator('*', "MATH_MUL", 3, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => ls * rs, SIGNEDNESS.NONE),
     new Operator('/', "MATH_DIV", 3, OPERATOR_DIRECTION.L_TO_R, OPERATOR_ARGS.ARGS_2, (ls, rs) => Math.trunc(ls / rs), SIGNEDNESS.NONE),
